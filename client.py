@@ -1,9 +1,12 @@
 from tornado.httpclient import HTTPRequest, AsyncHTTPClient
+from tornado.simple_httpclient import SimpleAsyncHTTPClient
 import tornado.ioloop
 import tornado.web
 import os,sys
 from tornado import gen
 from functools import partial
+#import time,datatime
+
 
 total_downloaded = 0
 #action = sys.argv[1]
@@ -11,12 +14,12 @@ total_downloaded = 0
 #uid = sys.argv[3]
 #gid = sys.argv[4]
 #pos = sys.argv[5]
-def geturl(action,host,filepath,uid,gid,pos):
+def geturl(action,host,filepath,uid,gid,pos,size):
     if action=="read":
  #       uid = sys.argv[3]
   #      gid = sys.argv[4]
    #     pos = sys.argv[5]
-        url = "http://"+host+":8880/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+pos
+        url = "http://"+host+":8888/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+pos+"&size="+size
         print(url) 
         return url
 
@@ -27,25 +30,31 @@ def chunky(path, chunk):
    total_downloaded += len(chunk)
    print("chunk size",len(chunk))
    # the OS blocks on file reads + writes -- beware how big the chunks is as it could effect things
-   with open(path, 'a+b') as f:
+   with open(path, 'ab') as f:
        f.write(chunk)
 
 @gen.coroutine
-def writer(action,host,filepath,uid,gid,pos):
+def writer(action,host,filepath,targetdir,uid,gid,pos,size):
    print("writer function")
 #   tornado.ioloop.IOLoop.instance().start()
-   file_name = os.path.basename(filepath)+"_new"
-   f = open(os.path.basename(filepath)+"_new",'w')
+   file_name = targetdir+os.path.basename(filepath)
+   if os.path.exists(targetdir):
+       pass
+   else:
+       os.mkdir(targetdir)
+   f = open(file_name,'w')
    f.close()
-   request = HTTPRequest(geturl(action,host,filepath,uid,gid,pos), streaming_callback=partial(chunky, file_name))
-   http_client = AsyncHTTPClient()
+   request = HTTPRequest(geturl(action,host,filepath,uid,gid,pos,size), streaming_callback=partial(chunky, file_name))
+   AsyncHTTPClient.configure('tornado.simple_httpclient.SimpleAsyncHTTPClient', max_body_size=512*1024*1024)
+   http_client = AsyncHTTPClient(force_instance=True)
+   #http_client.configure("tornado.simple_httpclient.SimpleAsyncHTTPClient",max_body_size=524288000)
    response = yield http_client.fetch(request)
    tornado.ioloop.IOLoop.instance().stop()
    print("total bytes downloaded was", total_downloaded)
 
-def entrance(action,host,filepath,uid,gid,pos):
-   print("entrance function")
-   writer(action,host,filepath,uid,gid,pos)
+def entrance(action,host,filepath,targetdir,uid,gid,pos,size):
+   #print("entrance function")
+   writer(action,host,filepath,targetdir,uid,gid,pos,size)
    tornado.ioloop.IOLoop.instance().start()
 
 

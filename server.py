@@ -13,14 +13,23 @@ def read_in_chunks(infile, chunk_size=1024*1024):
        yield chunk
        chunk = infile.read(chunk_size)
 
-def read_in_chunks_pos(base_dir, pos, chunk_size=1024*1024):
+def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
    with open(base_dir, 'rb') as infile:
      infile.seek(int(pos))
-     chunk = infile.read(chunk_size)
-     while chunk:
-       yield chunk
-       chunk = infile.read(chunk_size)
-     infile.close()
+     no = int(size) // chunk_size
+     i = 0
+     #chunk = infile.read(chunk_size)
+     #while chunk and i<no:
+     while i<no:
+        chunk = infile.read(chunk_size)
+        yield chunk
+        i = i+1
+     if (int(size) % chunk_size) != 0:
+        last = int(size) % chunk_size
+        chunk = infile.read(last)
+        yield chunk
+   infile.close()
+
 class ReadRequestHandler(tornado.web.RequestHandler):
    @gen.coroutine
    def get(self):
@@ -29,10 +38,10 @@ class ReadRequestHandler(tornado.web.RequestHandler):
         gid = self.get_argument('gid')
         base_dir = self.get_argument('filepath')
         pos = self.get_argument('pos')
-
+        size = self.get_argument('size')
         # Python protocol does not require () on it's if statements like you are
 
-        if base_dir==None or uid==None or gid==None or pos==None:
+        if base_dir==None or uid==None or gid==None or pos==None or size==None:
             self.write("Invalid argument!You caused a %d error."%status_code)
             exit(1)
         if os.path.exists(base_dir):
@@ -50,12 +59,11 @@ class ReadRequestHandler(tornado.web.RequestHandler):
             exit(1)
         else:
           #  with open(base_dir, 'rb') as infile:
-                for chunk in read_in_chunks_pos(base_dir,pos):
+                for chunk in read_in_chunks_pos(base_dir,pos,size):
                     self.write(chunk)
                     yield gen.Task(self.flush)
                     total_sent += len(chunk)
                     print("sent",total_sent)
-
                 self.finish()
 class ListRequestHandler(tornado.web.RequestHandler):
    @tornado.web.asynchronous
@@ -140,6 +148,6 @@ if __name__ == "__main__":
     (r"/list",ListRequestHandler),
     (r"/read",ReadRequestHandler)
     ])
-   application.listen(8880)
+   application.listen(8888)
    tornado.ioloop.IOLoop.instance().start()
 
