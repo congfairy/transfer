@@ -19,7 +19,7 @@ def geturl(action,host,filepath,uid,gid,pos,size):
  #       uid = sys.argv[3]
   #      gid = sys.argv[4]
    #     pos = sys.argv[5]
-        url = "http://"+host+":8888/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+pos+"&size="+size
+        url = "http://"+host+"/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+pos+"&size="+size
         print(url) 
         return url
 
@@ -28,7 +28,7 @@ def chunky(path, chunk):
 #   print("self._max_body_size",self._max_body_size)
    global total_downloaded
    total_downloaded += len(chunk)
-   print("chunk size",len(chunk))
+  # print("chunk size",len(chunk))
    # the OS blocks on file reads + writes -- beware how big the chunks is as it could effect things
    with open(path, 'ab') as f:
        f.write(chunk)
@@ -41,7 +41,7 @@ def writer(action,host,filepath,targetdir,uid,gid,pos,size):
    if os.path.exists(targetdir):
        pass
    else:
-       os.mkdir(targetdir)
+       os.makedirs(targetdir)
    f = open(file_name,'w')
    f.close()
    request = HTTPRequest(geturl(action,host,filepath,uid,gid,pos,size), streaming_callback=partial(chunky, file_name))
