@@ -3,20 +3,19 @@ import tornado.httpserver
 import tornado.web
 import tornado.options
 from tornado import gen
-import os,sys
+import os,sys,re
 from stat import *
 from tornado.options import define, options
 from os.path import getsize
-define("port", default=8000, help="run on the given port", type=int)
-GB = 1024 * 1024 * 1024
+define("port",default=8000,help="run on the givin port",type=int)
 
-def read_in_chunks(infile, chunk_size=1024*1024):
+async def read_in_chunks(infile, chunk_size=1024*1024):
    chunk = infile.read(chunk_size)
    while chunk:
-       yield chunk
+       await chunk
        chunk = infile.read(chunk_size)
 
-def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
+async def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
   realsize = getsize(base_dir)
   if(int(size)>=realsize):
    with open(base_dir, 'rb') as infile:
@@ -25,12 +24,12 @@ def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
      i = 0
      while i<no:
         chunk = infile.read(chunk_size)
-        yield chunk
+        await chunk
         i = i+1
      if ((realsize-int(pos)) % chunk_size) != 0:
         last = (realsize-int(pos)) % chunk_size
         chunk = infile.read(last)
-        yield chunk
+        await chunk
    infile.close()
   else:   
    with open(base_dir, 'rb') as infile:
@@ -41,12 +40,12 @@ def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
      #while chunk and i<no:
      while i<no:
         chunk = infile.read(chunk_size)
-        yield chunk
+        await chunk
         i = i+1
      if (int(size) % chunk_size) != 0:
         last = int(size) % chunk_size
         chunk = infile.read(last)
-        yield chunk
+        await chunk
    infile.close()
 
 class ReadRequestHandler(tornado.web.RequestHandler):
@@ -162,14 +161,13 @@ if __name__ == "__main__":
    # this was connected to the pyCurl call and as far as I know now not
    # beng used so try without to insure it's no longer needed
    tornado.options.parse_command_line()
-   #print (tornado.version)
    application = tornado.web.Application([
     (r"/download", StreamingRequestHandler),
     (r"/list",ListRequestHandler),
-    (r"/read",ReadRequestHandler)
+    (r"/read",ReadRequestHandler),
+
     ])
    http_server = tornado.httpserver.HTTPServer(application,xheaders=True)
    http_server.listen(options.port)
-  # application.listen(8888)
    tornado.ioloop.IOLoop.instance().start()
 
