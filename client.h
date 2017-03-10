@@ -3,5 +3,6 @@
 #include <iostream>
 #include <Python.h>
 using namespace std;
-void transfer(const char *action,const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid,const char *position,const char *size);
+//void transread(const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid,const char *position,const char *size);
+void transupload(const char *host,const char *filepath,const char *targetdir);
 #endif
