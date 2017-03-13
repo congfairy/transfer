@@ -7,7 +7,7 @@ import os,sys,re,time
 from stat import *
 from tornado.options import define, options
 from os.path import getsize
-
+import datetime
 sys.path.insert(0, os.pardir)
 # noinspection PyPep8
 from tornadostreamform.multipart_streamer import MultiPartStreamer, StreamedPart, TemporaryFileStreamedPart
@@ -25,7 +25,7 @@ TB = 1024 * GB
 
 MAX_BUFFER_SIZE = 4 * MB  # Max. size loaded into memory!
 MAX_BODY_SIZE = 4 * MB  # Max. size loaded into memory!
-MAX_STREAMED_SIZE = 1 * TB  # Max. size streamed in one request!
+MAX_STREAMED_SIZE = 0.5 * TB  # Max. size streamed in one request!
 TMP_DIR = '/home/wangcong/leaf/mufd'  # Path for storing streamed temporary files. Set this to a directory that receives the files.
 
 
@@ -102,6 +102,8 @@ class MyStreamer(MultiPartStreamer):
                 else:
                     s_speed = "?"
                     s_remaining = "?"
+                now = datetime.datetime.now()
+                now.strftime('%Y-%m-%d %H:%M:%S')  
                 sys.stdout.write("  %.1f%% speed=%s remaining time=%s\n" % (percent, s_speed, s_remaining))
                 sys.stdout.flush()
 
@@ -234,6 +236,7 @@ class ReadRequestHandler(tornado.web.RequestHandler):
         pos = self.get_argument('pos')
         size = self.get_argument('size')
         # Python protocol does not require () on it's if statements like you are
+        print("size",size)
 
         if base_dir==None or uid==None or gid==None or pos==None or size==None:
             self.write("Invalid argument!You caused a %d error."%status_code)
@@ -257,8 +260,8 @@ class ReadRequestHandler(tornado.web.RequestHandler):
                     self.write(chunk)
                     yield gen.Task(self.flush)
                     total_sent += len(chunk)
-                    print("sent",total_sent)
-                #print("sent",total_sent)
+         #           print("sent",total_sent)
+        #        print("senttotal",total_sent)
                 self.finish()
 class ListRequestHandler(tornado.web.RequestHandler):
    @tornado.web.asynchronous
