@@ -1,8 +1,8 @@
 #include "client.h"
 int main()
 {
-  // transread("192.168.83.218:8000","/dev/shm/500M.file","/root/leaf/pytoc/download/","0","0","0","1000000000000");
-   transupload("202.122.37.90:28001","/root/leaf/1T.file","/root/leaf/pytoc/upload/1T.file");
+   transread("202.122.37.90:28001","/root/leaf/pytoc/upload/night.mkv","/root/leaf/","0","0","0","1000000000000");
+   //transupload("202.122.37.90:28001","/root/leaf/night.mkv","/root/leaf/pytoc/upload/night.mkv");
    return 0;
 
 }

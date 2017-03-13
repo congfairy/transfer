@@ -109,23 +109,23 @@ class Client:
         return tornado.httpclient.AsyncHTTPClient().fetch(request, callback=on_response)
 
 
-def geturl(action,host,filepath,uid,gid,pos,size):
+def geturlread(action,host,filepath,uid,gid,pos,size):
     if action=="read":
         url = "http://"+host+"/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+pos+"&size="+size
         print(url) 
         return url
 
-def geturl(action,host,targetpath):
+def geturlupload(action,host,targetpath):
     if action=="upload":
         url = "http://"+host+"/upload?targetpath="+targetpath
         print(url) 
         return url
 
 def chunky(path, chunk):
-#   print("self._max_body_size",self._max_body_size)
+   # print("self._max_body_size",self._max_body_size)
     global total_downloaded
     total_downloaded += len(chunk)
-  # print("chunk size",len(chunk))
+   # print("chunk size",len(chunk))
    # the OS blocks on file reads + writes -- beware how big the chunks is as it could effect things
     with open(path, 'ab') as f:
         f.write(chunk)
@@ -141,10 +141,11 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
        os.makedirs(targetdir)
    f = open(file_name,'w')
    f.close()
-   request = HTTPRequest(geturl("read",host,filepath,uid,gid,pos,size), streaming_callback=partial(chunky, file_name))
-   AsyncHTTPClient.configure('tornado.simple_httpclient.SimpleAsyncHTTPClient', max_body_size=512*1024*1024)
-   http_client = AsyncHTTPClient(force_instance=True)
-   #http_client.configure("tornado.simple_httpclient.SimpleAsyncHTTPClient",max_body_size=524288000)
+   request = HTTPRequest(geturlread("read",host,filepath,uid,gid,pos,size), streaming_callback=partial(chunky, file_name), decompress_response=True, request_timeout=300)
+   #AsyncHTTPClient.configure('tornado.simple_httpclient.SimpleAsyncHTTPClient', max_body_size=1024*1024*1024)
+   #http_client = AsyncHTTPClient(force_instance=True)
+   AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
+   http_client = AsyncHTTPClient()
    response = yield http_client.fetch(request)
    tornado.ioloop.IOLoop.instance().stop()
    print("total bytes downloaded was", total_downloaded)
@@ -159,7 +160,7 @@ def upload(host,filepath,targetpath):
         tornado.ioloop.IOLoop.current().stop() # Stop the loop when the upload is omplete.
 
     client = Client()
-    yield client.put_stream(geturl("upload",host,targetpath), filepath, on_response)
+    yield client.put_stream(geturlupload("upload",host,targetpath), filepath, on_response)
 
 
 

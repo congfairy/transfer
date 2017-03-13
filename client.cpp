@@ -1,5 +1,5 @@
 #include "client.h"
-/*void transread(const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid,const char *position,const char *size)
+void transread(const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid,const char *position,const char *size)
 {
  
  Py_Initialize();
@@ -39,7 +39,7 @@
  Py_DECREF(result);
  Py_Finalize();
  //return 0;
-}*/
+}
 void transupload(const char *host,const char *filepath,const char *targetdir)
 {
  
