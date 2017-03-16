@@ -27,16 +27,48 @@ MAX_BUFFER_SIZE = 4 * MB  # Max. size loaded into memory!
 MAX_BODY_SIZE = 4 * MB  # Max. size loaded into memory!
 MAX_STREAMED_SIZE = 0.5 * TB  # Max. size streamed in one request!
 TMP_DIR = '/home/wangcong/leaf/mufd'  # Path for storing streamed temporary files. Set this to a directory that receives the files.
-
-
+#Uploadfilepath = ""
+uploadfeed = False
+couldpost = False
+class MyFileStreamedPart(StreamedPart):
+    feedpos = 0
+    def __init__(self, streamer, headers,filepath,pos,totalsize):
+        super().__init__(streamer,headers)
+        self.filepath = filepath
+        self.feedpos = int(pos)
+        self.totalsize = int(totalsize)
+    def feed(self, data):
+        filepath = self.filepath
+        global uploadfeed
+        global couldpost
+        #print("feed pos is ",int(pos))
+        #print("feed data is ",data)
+        if uploadfeed == False and os.path.exists(filepath):
+            print("file removed!")
+            os.remove(filepath)
+            uploadfeed = True
+        if not os.path.exists(filepath):
+            file_object = open(filepath,'w')
+            file_object.close()
+        file_object = open(filepath,'rb+')
+        file_object.seek(int(self.feedpos))
+        #print("feed pos is ",int(self.feedpos),"feed data len is ",len(data))
+        file_object.write(data)
+        self.feedpos = self.feedpos+len(data)
+        file_object.flush()
+        if self.feedpos==self.totalsize:
+            couldpost = True
+            file_object.close()
 class MyStreamer(MultiPartStreamer):
     """You can create your own multipart streamer, and override some methods."""
 
-    def __init__(self, total):
+    def __init__(self, total, Uploadfilepath, Uploadpos, totalsize):
         super().__init__(total)
         self._last_progress = 0.0  # Last time of updating the progress
         self.bwm = BandwidthMonitor(total)  # Create a bandwidth monitor
-
+        self.Uploadfilepath = Uploadfilepath 
+        self.Uploadpos = Uploadpos
+        self.totalsize = totalsize
     def create_part(self, headers):
         """In the create_part method, you should create and return StreamedPart instance.
 
@@ -48,14 +80,16 @@ class MyStreamer(MultiPartStreamer):
         then the default create_part() method that creates a TemporaryFileStreamedPart instance for you. and it
         will stream file data into the system default temporary directory.
         """
+        
         global TMP_DIR
-
         # you can use a dummy StreamedPart to examine the headers, as shown below.
         dummy = StreamedPart(self, headers)
-        print("Starting new part, is_file=%s, headers=%s" % (dummy.is_file(), headers))
-
+       # print("Starting new part, is_file=%s, headers=%s" % (dummy.is_file(), headers))
+       # print("create_part self.Uploadpos",self.Uploadpos)
         # This is how you create a streamed file in a given directory.
-        return  TemporaryFileStreamedPart(self, headers, tmp_dir=TMP_DIR)
+        #return  TemporaryFileStreamedPart(self, headers, tmp_dir=TMP_DIR)
+        return  MyFileStreamedPart(self, headers, self.Uploadfilepath, self.Uploadpos, self.totalsize)
+
         # The default method creates a TemporaryFileStreamedPart with default tmp_dir.
         # return super().create_part(headers)
 
@@ -104,19 +138,19 @@ class MyStreamer(MultiPartStreamer):
                     s_remaining = "?"
                 now = datetime.datetime.now()
                 now.strftime('%Y-%m-%d %H:%M:%S')  
-                sys.stdout.write("  %.1f%% speed=%s remaining time=%s\n" % (percent, s_speed, s_remaining))
+               # sys.stdout.write("  %.1f%% speed=%s remaining time=%s\n" % (percent, s_speed, s_remaining))
                 sys.stdout.flush()
 
-    def examine(self):
-        """Debug method: print the structure of the multipart form to stdout."""
-        for part in self.parts:
-            print("examine function filename",part.get_filename())
-            print("PART name=%s, filename=%s, size=%s" % (part.get_name(), part.get_filename(), part.get_size()))
-            for hdr in part.headers:
-                print("\tHEADER name=%s" % hdr.get("name", "???"))
-                for key in sorted(hdr.keys()):
-                    if key.lower() != "name":
-                        print("\t\t\t%s=%s" % (key, hdr[key]))
+   # def examine(self):
+    #    """Debug method: print the structure of the multipart form to stdout."""
+       # for part in self.parts:
+        #    print("examine function filename",part.get_filename())
+        #    print("PART name=%s, filename=%s, size=%s" % (part.get_name(), part.get_filename(), part.get_size()))
+         #   for hdr in part.headers:
+          #      print("\tHEADER name=%s" % hdr.get("name", "???"))
+           #     for key in sorted(hdr.keys()):
+            #        if key.lower() != "name":
+             #           print("\t\t\t%s=%s" % (key, hdr[key]))
 
 
 #
@@ -125,6 +159,7 @@ class MyStreamer(MultiPartStreamer):
 
 @stream_request_body
 class StreamHandler(RequestHandler):
+    #global Uploadfilepath
     def get(self):
         self.write('''<html><body>
 <form method="POST" action="/" enctype="multipart/form-data">
@@ -139,23 +174,29 @@ Other field 3: <input name="other3" type="text"><br>
 </body></html>''')
 
     def prepare(self):
+ 
         """In request preparation, we get the total size of the request and create a MultiPartStreamer for it.
 
         In the prepare method, we can call the connection.set_max_body_size() method to set the max body size
         that can be **streamed** in the current request. We can do this safely without affecting the general
         max_body_size parameter."""
         global MAX_STREAMED_SIZE
+        #global Uploadfilepath
+        #global Uploadpos
+        Uploadfilepath = self.get_argument('targetpath')
+        Uploadpos = self.get_argument('pos')
+        totalsize = self.get_argument('totalsize')
         if self.request.method.lower() == "post":
             self.request.connection.set_max_body_size(MAX_STREAMED_SIZE)
-            print("Changed max streamed size to %s" % format_size(MAX_STREAMED_SIZE))
+           # print("Changed max streamed size to %s" % format_size(MAX_STREAMED_SIZE))
 
         try:
             total = int(self.request.headers.get("Content-Length", "0"))
-            print("total is :",total)
+           # print("total is :",total)
         except KeyError:
             total = 0  # For any well formed browser request, Content-Length should have a value.
         # noinspection PyAttributeOutsideInit
-        self.ps = MyStreamer(total)
+        self.ps = MyStreamer(total,Uploadfilepath,Uploadpos,totalsize)
 
     def data_received(self, chunk):
         """When a chunk of data is received, we forward it to the multipart streamer.
@@ -167,26 +208,39 @@ Other field 3: <input name="other3" type="text"><br>
         """Finally, post() is called when all of the data has arrived.
 
         Here we can do anything with the parts."""
-        print("\n\npost() is called when streaming is over.")
+        #if couldpost==True:
+       # print("\n\npost() is called when streaming is over.")
         try:
             # Before using the form parts, you **must** call data_complete(), so that the last part can be finalized.
-            self.ps.data_complete()
-            targetpath = self.get_argument('targetpath')
-            print("\n\ntargetfile is :",targetpath)
-            # Use parts here!
-            for idx, part in enumerate(self.ps.parts):
-                part.move(targetpath)
-
-            self.set_header("Content-Type", "text/plain")
-            out = sys.stdout
-            try:
-                sys.stdout = self
-                self.ps.examine()
-            finally:
-                sys.stdout = out
+               self.ps.data_complete()
+               Uploadfilepath = self.get_argument('targetpath')
+                    #print("\n\ntargetfile is :",Uploadfilepath)
+                    # Use parts here!
+                    #for idx, part in enumerate(self.ps.parts):
+                    #part.move(Uploadfilepath)
+               self.set_header("Content-Type", "text/plain")
+               out = sys.stdout
+               if couldpost==True:
+                try:
+                   sys.stdout = self
+			       # self.ps.examine()
+                   if(os.path.exists(Uploadfilepath)):
+                       if(os.path.isfile(Uploadfilepath)):
+                           statinfo = os.stat(Uploadfilepath)
+                           self.write("Metadata of this file on the server->")
+                           self.write(Uploadfilepath+':')
+                           statdict = {'path':(Uploadfilepath),'mode':str(statinfo.st_mode),'ino':str(statinfo.st_ino),'dev':str(statinfo.st_dev),'nlink':str(statinfo.st_nlink),'uid':str(statinfo.st_uid),'gid':str(statinfo.st_gid),'size':str(statinfo.st_size),'atime':str(statinfo.st_atime),'mtime':str(statinfo.st_mtime),'ctime':str(statinfo.st_ctime)}
+                           self.write(statdict)
+                   else:
+                       self.write("File or directory doesn't exist!You caused a %d error."%status_code)
+                       exit(1)
+			    
+                finally:
+                   sys.stdout = out
         finally:
             # Don't forget to release temporary files.
-            self.ps.release_parts()
+                self.ps.release_parts()
+
 def read_in_chunks(infile, chunk_size=1024*1024):
    chunk = infile.read(chunk_size)
    while chunk:
