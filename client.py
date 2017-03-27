@@ -13,8 +13,9 @@ from concurrent.futures import ThreadPoolExecutor
 import tornado.iostream
 from tornado.escape import utf8
 from tornado.log import gen_log
-#import time,datatime
+#import time,datat
 
+readchunky = False
 total_downloaded = 0
 threadpool = ThreadPoolExecutor(1)  # A thread for reading chunks from the file
 
@@ -79,7 +80,7 @@ class Client:
             CRLF, '--', boundary, '--', CRLF
         ]))
         content_length = len(post_head) + int(file_size) + len(post_tail)
-        print("content_length is:",content_length)
+        #print("content_length is:",content_length)
         headers = {
             'Content-Type': 'multipart/form-data; boundary=' + boundary,
             'Content-Transfer-Encoding': 'binary',
@@ -92,7 +93,7 @@ class Client:
                 sys.stdout.write(post_head.decode('ascii'))
             write(post_head)
             remaining = file_size
-            print("remaining in body_produceris :",remaining)
+            #print("remaining in body_produceris :",remaining)
             with open(filename, "rb") as fileobj:
                 fileobj.seek(int(uploadpos))
                 while remaining > 0:
@@ -121,7 +122,7 @@ class Client:
 
 def geturlread(action,host,filepath,uid,gid,pos,size):
     if action=="read":
-        url = "http://"+host+"/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+pos+"&size="+size
+        url = "http://"+host+"/read?filepath="+filepath+"&uid="+uid+"&gid="+gid+"&pos="+str(pos)+"&size="+str(size)
         print(url) 
         return url
 
@@ -131,34 +132,65 @@ def geturlupload(action,host,targetpath,pos,size,totalsize):
         print(url) 
         return url
 
-def chunky(path, chunk):
+def chunky(path,pos,totalsize,chunk):
    # print("self._max_body_size",self._max_body_size)
     global total_downloaded
+    global readchunky
+    if readchunky == False and os.path.exists(path):
+        os.remove(path)
+        readchunky = True
+    if not os.path.exists(path):
+        f = open(path,'w')
+        f.close()
+    f = open(path,'ab+')
+    f.seek(int(pos))
+    f.write(chunk)
+    pos = pos+len(chunk)
+    f.flush()
+    if pos==totalsize:
+        f.close()
     total_downloaded += len(chunk)
    # print("chunk size",len(chunk))
    # the OS blocks on file reads + writes -- beware how big the chunks is as it could effect things
-    with open(path, 'ab') as f:
-        f.write(chunk)
+
+def sizebwchunky(chunk):
+   global FILESIZE
+   FILESIZE = int(chunk)
+
+@gen.coroutine
+def sizebw(host,filepath):
+   url = "http://"+host+"/sizebw?filepath="+filepath
+   print(url)
+   request = HTTPRequest(url, streaming_callback=partial(sizebwchunky), request_timeout=300)
+   AsyncHTTPClient.configure('tornado.simple_httpclient.SimpleAsyncHTTPClient', max_body_size=1024*1024*1024)
+   http_client = AsyncHTTPClient(force_instance=True)
+   #AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
+   #http_client = AsyncHTTPClient()
+   response = yield http_client.fetch(request)
+   tornado.ioloop.IOLoop.instance().stop()
 
 @gen.coroutine
 def writer(host,filepath,targetdir,uid,gid,pos,size):
-   print("writer function")
-#   tornado.ioloop.IOLoop.instance().start()
+   #print("writer function")
+   #tornado.ioloop.IOLoop.instance().start()
    file_name = targetdir+os.path.basename(filepath)
-   if os.path.exists(targetdir):
+   '''if os.path.exists(targetdir):
        pass
    else:
        os.makedirs(targetdir)
    f = open(file_name,'w')
-   f.close()
-   request = HTTPRequest(geturlread("read",host,filepath,uid,gid,pos,size), streaming_callback=partial(chunky, file_name), decompress_response=True, request_timeout=300)
-   #AsyncHTTPClient.configure('tornado.simple_httpclient.SimpleAsyncHTTPClient', max_body_size=1024*1024*1024)
-   #http_client = AsyncHTTPClient(force_instance=True)
-   AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
-   http_client = AsyncHTTPClient()
+   f.close()'''
+   request = HTTPRequest(geturlread("read",host,filepath,uid,gid,pos,size), streaming_callback=partial(chunky, file_name, pos, size), decompress_response=True, request_timeout=300)
+   AsyncHTTPClient.configure('tornado.simple_httpclient.SimpleAsyncHTTPClient', max_body_size=1024*1024*1024)
+   http_client = AsyncHTTPClient(force_instance=True)
+   #AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
+   #http_client = AsyncHTTPClient()
    response = yield http_client.fetch(request)
-   tornado.ioloop.IOLoop.instance().stop()
+  # tornado.ioloop.IOLoop.instance().stop()
    print("total bytes downloaded was", total_downloaded)
+   if total_downloaded==FILESIZE:
+       tornado.ioloop.IOLoop.instance().stop()
+  
 
 @gen.coroutine
 def upload(host,filepath,targetpath,pos,size):
@@ -180,38 +212,57 @@ def upload(host,filepath,targetpath,pos,size):
 
 
 def readentrance(host,filepath,targetdir,uid,gid,pos,size):
-   #print("entrance function")
-    writer(host,filepath,targetdir,uid,gid,pos,size)
+    sizebw(host,filepath) 
     tornado.ioloop.IOLoop.instance().start()
+    filesize = FILESIZE
+    streamno = 2
+    if(int(size)>=filesize):
+        streamsize = (filesize-int(pos)) // (streamno-1)
+    else:
+        streamsize = (int(size)) // (streamno-1)
+    
+    i = 0
+    threads = []
+    while i < (streamno-1):
+        threads.append(threading.Thread(target=writer,args=(host,filepath,targetdir,uid,gid,streamsize*i,streamsize)))
+     #   print(streamsize*i,streamsize)
+        i=i+1
+    if (streamsize*i) < filesize:
+        threads.append(threading.Thread(target=writer,args=(host,filepath,targetdir,uid,gid,streamsize*i,filesize-streamsize*i)))
+     #   print(streamsize*i,filesize-streamsize*i)
+    for t in threads:
+        t.setDaemon(True)
+        t.start()
+    #    tornado.ioloop.IOLoop.instance().start()
+   # t.join()
+    tornado.ioloop.IOLoop.instance().start()
+    i=0
+    for t in threads:
+        t.join()
+    #tornado.ioloop.IOLoop.instance().stop()
 
 def uploadentrance(host,filepath,targetpath):
-    streamno = 5
+    streamno = 2
     filesize = os.path.getsize(filepath)
     streamsize = filesize // (streamno-1)
     i = 0
     threads = []
-    print("filesize is:",filesize)
     while i < (streamno-1):
         threads.append(threading.Thread(target=upload,args=(host,filepath,targetpath,streamsize*i,streamsize)))
-        #threads.append(threading.Thread(target=work))
-        print(streamsize*i,streamsize)
         i=i+1
     if (streamsize*i) < filesize:
         threads.append(threading.Thread(target=upload,args=(host,filepath,targetpath,streamsize*i,filesize-streamsize*i)))
-        #threads.append(threading.Thread(target=work))
-        print(streamsize*i,filesize-streamsize*i)
     for t in threads:
         t.setDaemon(True)
         t.start()
+     #   tornado.ioloop.IOLoop.instance().start()
+    #t.join()
+    #print("upload all!")
+    tornado.ioloop.IOLoop.instance().start()
     t.join()
-    print("upload all!")
 
-def work():
-    print ("worker")
-    time.sleep(1)
-    return
 
-if __name__=="__main__":
+'''if __name__=="__main__":
     uploadentrance("202.122.37.90:28003","/root/leaf/transfer/night.mkv","/home/wangcong/leaf/upload/night.mkv")
     #uploadentrance("202.122.37.90:28006","/root/leaf/test.cpp","/root/leaf/pytoc/upload/test.cpp")
-    tornado.ioloop.IOLoop.instance().start()
+    tornado.ioloop.IOLoop.instance().start()'''

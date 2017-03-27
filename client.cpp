@@ -60,7 +60,7 @@ void transupload(const char *host,const char *filepath,const char *targetdir)
  PyTuple_SetItem(pArgs,1,Py_BuildValue("s",filepath));
  PyTuple_SetItem(pArgs,2,Py_BuildValue("s",targetdir));
  pModule = PyImport_ImportModule("client");
- printf("host %s",host);
+// printf("host %s",host);
  if(pModule == NULL)
  {
    printf("can't load module\n");
