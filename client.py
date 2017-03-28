@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 import tornado.iostream
 from tornado.escape import utf8
 from tornado.log import gen_log
+from ctypes import *
+import os
 #import time,datat
 
 readchunky = False
@@ -190,7 +192,12 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
    print("total bytes downloaded was", total_downloaded)
    if total_downloaded==FILESIZE:
        tornado.ioloop.IOLoop.instance().stop()
-  
+   lib=cdll.LoadLibrary('./libpycall.so')
+   print("start")
+   func=lib.update_bitmap
+   func.argtypes=(c_int,c_int,c_char_p)
+   func=lib.update_bitmap(int(pos),int(size),filepath.encode("utf-8"))
+   print("finish")
 
 @gen.coroutine
 def upload(host,filepath,targetpath,pos,size):
