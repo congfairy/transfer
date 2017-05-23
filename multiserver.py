@@ -249,8 +249,8 @@ def read_in_chunks(infile, chunk_size=1024*1024):
 
 def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
   realsize = getsize(base_dir)
-  if(int(size)>=realsize):
-   with open(base_dir, 'rb') as infile:
+  '''if(int(size)>=realsize):
+    with open(base_dir, 'rb') as infile:
      infile.seek(int(pos))
      no = (realsize-int(pos)) // chunk_size
      i = 0
@@ -262,15 +262,17 @@ def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
         last = (realsize-int(pos)) % chunk_size
         chunk = infile.read(last)
         yield chunk
+   print("last chunk size is ",size)
    infile.close()
-  else:   
-   with open(base_dir, 'rb') as infile:
+  else:'''   
+  with open(base_dir, 'rb') as infile:
      infile.seek(int(pos))
      no = int(size) // chunk_size
      i = 0
      #chunk = infile.read(chunk_size)
-     #while chunk and i<no:
+     #while chunk and i<no
      while i<no:
+        #print("pos no i are ",pos,no,i)
         chunk = infile.read(chunk_size)
         yield chunk
         i = i+1
@@ -278,7 +280,29 @@ def read_in_chunks_pos(base_dir, pos, size, chunk_size=1024*1024):
         last = int(size) % chunk_size
         chunk = infile.read(last)
         yield chunk
-   infile.close()
+#  print("other chunk size is :",size)
+  infile.close()
+
+class SizebwRequestHandler(tornado.web.RequestHandler):
+   @gen.coroutine
+   def get(self):
+        base_dir = self.get_argument('filepath')
+
+        if base_dir==None:
+            self.write("Invalid argument!You caused a %d error."%status_code)
+            exit(1)
+        if os.path.exists(base_dir):
+          statinfo = os.stat(base_dir)
+          mode = statinfo.st_mode
+        else:
+            self.write("File or directory doesn't exist!You caused a %d error."%status_code)
+            exit(1)
+        if (S_ISDIR(mode)):
+            self.write("This is not a file!You caused a %d error."%status_code)
+            exit(1)
+        else:
+            realsize = getsize(base_dir)
+            self.write(str(realsize))
 
 class ReadRequestHandler(tornado.web.RequestHandler):
    @gen.coroutine
@@ -290,7 +314,6 @@ class ReadRequestHandler(tornado.web.RequestHandler):
         pos = self.get_argument('pos')
         size = self.get_argument('size')
         # Python protocol does not require () on it's if statements like you are
-        print("size",size)
 
         if base_dir==None or uid==None or gid==None or pos==None or size==None:
             self.write("Invalid argument!You caused a %d error."%status_code)
@@ -314,8 +337,7 @@ class ReadRequestHandler(tornado.web.RequestHandler):
                     self.write(chunk)
                     yield gen.Task(self.flush)
                     total_sent += len(chunk)
-         #           print("sent",total_sent)
-        #        print("senttotal",total_sent)
+                print("senttotal",total_sent)
                 self.finish()
 class ListRequestHandler(tornado.web.RequestHandler):
    @tornado.web.asynchronous
@@ -399,6 +421,7 @@ if __name__ == "__main__":
     (r"/list",ListRequestHandler),
     (r"/read",ReadRequestHandler),
     (r"/upload", StreamHandler),
+    (r"/sizebw", SizebwRequestHandler),
     ])
    
    http_server = tornado.httpserver.HTTPServer(
