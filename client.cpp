@@ -1,5 +1,5 @@
 #include "client.h"
-void transread(const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid,const char *position,const char *size)
+void transread(const char *host,const char *filepath,const char *targetdir,const char *uid,const char *gid,int position,int size)
 {
  
  Py_Initialize();
@@ -20,8 +20,8 @@ void transread(const char *host,const char *filepath,const char *targetdir,const
  PyTuple_SetItem(pArgs,2,Py_BuildValue("s",targetdir));
  PyTuple_SetItem(pArgs,3,Py_BuildValue("s",uid));  
  PyTuple_SetItem(pArgs,4,Py_BuildValue("s",gid));  
- PyTuple_SetItem(pArgs,5,Py_BuildValue("s",position));  
- PyTuple_SetItem(pArgs,6,Py_BuildValue("s",size));  
+ PyTuple_SetItem(pArgs,5,Py_BuildValue("i",position));  
+ PyTuple_SetItem(pArgs,6,Py_BuildValue("i",size));  
  pModule = PyImport_ImportModule("client");
  if(pModule == NULL)
  {
@@ -33,6 +33,7 @@ void transread(const char *host,const char *filepath,const char *targetdir,const
    printf("can't load function\n");
  }
  result = PyEval_CallObject(pFunc,pArgs);
+ cout<<result<<endl;
  Py_DECREF(pArgs);
  if(result == NULL)
      cout<<"null"<<endl;
