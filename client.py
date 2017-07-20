@@ -15,14 +15,7 @@ import tornado.iostream
 from tornado.escape import utf8
 from tornado.log import gen_log
 from ctypes import *
-<<<<<<< HEAD
 import struct
-=======
-<<<<<<< HEAD
-import struct
-=======
->>>>>>> 2d82d7eb9ff824fb9c04107ae3974609b756dc08
->>>>>>> bb2c0e8ff916d2358b8bc115f3cbf4a970703921
 import os
 #import time,datat
 
@@ -205,11 +198,7 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
        http_client = AsyncHTTPClient()
        response = yield http_client.fetch(request)
        response = response.body
-<<<<<<< HEAD
        print("chunk length",len(response))
-=======
-       #print("chunk length",len(response))
->>>>>>> bb2c0e8ff916d2358b8bc115f3cbf4a970703921
        f = open(path,'rb+')
        chunklength = len(response)-8
        posnew,chunknew = struct.unpack('l%ds'%chunklength,response)
@@ -237,14 +226,8 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
        #print("after write  position,chunksize",f.tell(),len(chunknew)) 
        f.close() 
        print("total bytes downloaded was", total_downloaded)
-<<<<<<< HEAD
    if total_downloaded==realsize:
        tornado.ioloop.IOLoop.instance().stop()
-=======
-   if total_downloaded==FILESIZE:
-       tornado.ioloop.IOLoop.instance().stop()
-<<<<<<< HEAD
->>>>>>> bb2c0e8ff916d2358b8bc115f3cbf4a970703921
 '''   lib=cdll.LoadLibrary('./libpycall.so')
 =======
    lib=cdll.LoadLibrary('./libpycall.so')
@@ -256,11 +239,6 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
    print("finish")
 <<<<<<< HEAD
 '''
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 2d82d7eb9ff824fb9c04107ae3974609b756dc08
->>>>>>> bb2c0e8ff916d2358b8bc115f3cbf4a970703921
 
 @gen.coroutine
 def upload(host,filepath,targetpath,pos,size):
@@ -287,14 +265,9 @@ def readentrance(host,filepath,targetdir,uid,gid,pos,size):
     sizebw(host,filepath) 
     tornado.ioloop.IOLoop.instance().start()
     filesize = FILESIZE
-<<<<<<< HEAD
     streamno = 3
     start_time = time.time()
     global realsize
-=======
-    streamno = 15
-    start_time = time.time()
->>>>>>> bb2c0e8ff916d2358b8bc115f3cbf4a970703921
     if(int(size)>=filesize):
         realsize = filesize
         streamsize = (filesize-int(pos)) // (streamno-1)
@@ -304,17 +277,10 @@ def readentrance(host,filepath,targetdir,uid,gid,pos,size):
     i = 0
     threads = []
     while i < (streamno-1):
-<<<<<<< HEAD
         threads.append(threading.Thread(target=writer,args=(host,filepath,targetdir,uid,gid,int(pos)+streamsize*i,streamsize)))
         i=i+1
     if (streamsize*i) < realsize:
         threads.append(threading.Thread(target=writer,args=(host,filepath,targetdir,uid,gid,int(pos)+streamsize*i,realsize-streamsize*i)))
-=======
-        threads.append(threading.Thread(target=writer,args=(host,filepath,targetdir,uid,gid,streamsize*i,streamsize)))
-        i=i+1
-    if (streamsize*i) < filesize:
-        threads.append(threading.Thread(target=writer,args=(host,filepath,targetdir,uid,gid,streamsize*i,filesize-streamsize*i)))
->>>>>>> bb2c0e8ff916d2358b8bc115f3cbf4a970703921
     for t in threads:
         t.setDaemon(True)
         print("thread name is :",t.getName())
