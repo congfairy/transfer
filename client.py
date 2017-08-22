@@ -185,6 +185,9 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
    i = 0
    global total_downloaded
    global readchunky
+   lib=cdll.LoadLibrary('./libpycall.so')
+   func=lib.update_bitmap
+   func.argtypes=(c_int,c_int,c_char_p,c_int)
    #if readchunky == False and os.path.exists(path):
    #     os.remove(path)
    #     readchunky = True
@@ -202,12 +205,16 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
        f = open(path,'rb+')
        chunklength = len(response)-8
        posnew,chunknew = struct.unpack('l%ds'%chunklength,response)
-       #print("posnew is",posnew) 
+       print("posnew is",posnew) 
+       print("chunkleng",len(chunknew))
+       print("filesize",FILESIZE)
        f.seek(posnew)
        f.write(chunknew)
        total_downloaded=total_downloaded+len(chunknew)
        #print("after write  position,chunksize",f.tell(),len(chunknew)) 
        f.close()
+       func= lib.update_bitmap(int(posnew),int(len(chunknew)),filepath.encode("utf-8"),FILESIZE)
+       print ("finish")
        print("total bytes downloaded was", total_downloaded)
    if (int(size) % chunk_size) != 0:
        last = int(size) % chunk_size
@@ -225,20 +232,19 @@ def writer(host,filepath,targetdir,uid,gid,pos,size):
        total_downloaded=total_downloaded+len(chunknew)
        #print("after write  position,chunksize",f.tell(),len(chunknew)) 
        f.close() 
+       func= lib.update_bitmap(int(posnew),int(len(chunknew)),filepath.encode("utf-8"),FILESIZE)
+       print ("finish")
        print("total bytes downloaded was", total_downloaded)
    if total_downloaded==realsize:
        tornado.ioloop.IOLoop.instance().stop()
 '''   lib=cdll.LoadLibrary('./libpycall.so')
-=======
-   lib=cdll.LoadLibrary('./libpycall.so')
->>>>>>> 2d82d7eb9ff824fb9c04107ae3974609b756dc08
    print("start")
    func=lib.update_bitmap
-   func.argtypes=(c_int,c_int,c_char_p)
-   func=lib.update_bitmap(int(pos),int(size),filepath.encode("utf-8"))
+   func.argtypes=(c_int,c_int,c_char_p,c_int)
+   func=lib.update_bitmap(int(pos),int(size),filepath.encode("utf-8"),FILESIZE)
    print("finish")
-<<<<<<< HEAD
 '''
+
 
 @gen.coroutine
 def upload(host,filepath,targetpath,pos,size):
